@@ -1,4 +1,3 @@
-// src/components/GameBoard.tsx
 import { useEffect, useRef, useState } from 'react';
 import { GameMode } from '../App';
 import '../styles/GameBoard.css';
@@ -35,7 +34,44 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   const [isSimulating, setIsSimulating] = useState(false);
   const [gameState, setGameState] = useState<'drawing' | 'simulating' | 'checking'>('drawing');
 
-  // Initialize marbles
+  // Draw partitions and current drawing line during drawing phase
+  useEffect(() => {
+    if (gameState !== 'drawing' || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw existing partitions
+    partitions.forEach(partition => {
+      ctx.beginPath();
+      const { x: startX, y: startY } = partition.points[0];
+      ctx.moveTo(startX, startY);
+      partition.points.forEach(pt => ctx.lineTo(pt.x, pt.y));
+      ctx.closePath();
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    // Draw current partition in progress
+    if (currentPartition.length > 0) {
+      ctx.beginPath();
+      const [firstX, firstY] = currentPartition[0];
+      ctx.moveTo(firstX, firstY);
+      currentPartition.forEach(([x, y]) => {
+        ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.closePath();
+    }
+  }, [currentPartition, partitions, gameState]);
+
+  // Initialize marbles whenever drawing phase starts or marble count changes
   useEffect(() => {
     if (gameState === 'drawing') {
       initializeMarbles();
@@ -43,47 +79,36 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     }
   }, [marbleCount, gameState]);
 
-  // Animation loop
+  // Animation loop for simulation
   useEffect(() => {
     let animationId: number;
-    
     const animate = () => {
       if (!canvasRef.current || !isSimulating) return;
-      
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-      
-      // Clear canvas
+
+      // Clear and redraw
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw partitions
       drawPartitions(ctx);
-      
-      // Update and draw marbles
       updateMarbles();
       drawMarbles(ctx);
-      
+
       animationId = requestAnimationFrame(animate);
     };
-    
+
     if (isSimulating) {
       animationId = requestAnimationFrame(animate);
     }
-    
     return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-      }
+      if (animationId) cancelAnimationFrame(animationId);
     };
   }, [isSimulating, marbles, partitions]);
 
   const initializeMarbles = () => {
     if (!canvasRef.current) return;
-    
     const canvas = canvasRef.current;
     const newMarbles: Marble[] = [];
-    
     for (let i = 0; i < marbleCount; i++) {
       newMarbles.push({
         id: i,
@@ -91,48 +116,36 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
         y: Math.random() * canvas.height,
         vx: (Math.random() - 0.5) * 2,
         vy: (Math.random() - 0.5) * 2,
-        radius: 10
+        radius: 10,
       });
     }
-    
     setMarbles(newMarbles);
   };
 
   const updateMarbles = () => {
     if (!canvasRef.current) return;
-    
     const canvas = canvasRef.current;
-    
-    setMarbles(prevMarbles => {
-      return prevMarbles.map(marble => {
-        // Update position
-        let newX = marble.x + marble.vx;
-        let newY = marble.y + marble.vy;
-        
-        // Bounce off walls
-        if (newX - marble.radius <= 0 || newX + marble.radius >= canvas.width) {
-          marble.vx *= -1;
-          newX = marble.x + marble.vx;
+    setMarbles(prev =>
+      prev.map(m => {
+        let newX = m.x + m.vx;
+        let newY = m.y + m.vy;
+        if (newX - m.radius <= 0 || newX + m.radius >= canvas.width) {
+          m.vx *= -1;
+          newX = m.x + m.vx;
         }
-        
-        if (newY - marble.radius <= 0 || newY + marble.radius >= canvas.height) {
-          marble.vy *= -1;
-          newY = marble.y + marble.vy;
+        if (newY - m.radius <= 0 || newY + m.radius >= canvas.height) {
+          m.vy *= -1;
+          newY = m.y + m.vy;
         }
-        
-        return {
-          ...marble,
-          x: newX,
-          y: newY
-        };
-      });
-    });
+        return { ...m, x: newX, y: newY };
+      })
+    );
   };
 
   const drawMarbles = (ctx: CanvasRenderingContext2D) => {
-    marbles.forEach(marble => {
+    marbles.forEach(m => {
       ctx.beginPath();
-      ctx.arc(marble.x, marble.y, marble.radius, 0, Math.PI * 2);
+      ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
       ctx.fillStyle = 'blue';
       ctx.fill();
       ctx.closePath();
@@ -142,12 +155,9 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   const drawPartitions = (ctx: CanvasRenderingContext2D) => {
     partitions.forEach(partition => {
       ctx.beginPath();
-      ctx.moveTo(partition.points[0].x, partition.points[0].y);
-      
-      for (let i = 1; i < partition.points.length; i++) {
-        ctx.lineTo(partition.points[i].x, partition.points[i].y);
-      }
-      
+      const first = partition.points[0];
+      ctx.moveTo(first.x, first.y);
+      partition.points.forEach(pt => ctx.lineTo(pt.x, pt.y));
       ctx.closePath();
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 2;
@@ -155,48 +165,26 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     });
   };
 
+  // Mouse handlers and rest of code remain unchanged...
+
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (gameState !== 'drawing' || partitions.length >= partitionCount) return;
-    
     setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    setCurrentPartition([[x, y]]);
+    const rect = canvasRef.current!.getBoundingClientRect();
+    setCurrentPartition([[e.clientX - rect.left, e.clientY - rect.top]]);
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    setCurrentPartition(prev => [...prev, [x, y]]);
+    const rect = canvasRef.current!.getBoundingClientRect();
+    setCurrentPartition(prev => [...prev, [e.clientX - rect.left, e.clientY - rect.top]]);
   };
 
   const handleMouseUp = () => {
     if (isDrawing && currentPartition.length > 2) {
-      // Close the shape
-      const points = currentPartition.map(point => ({ x: point[0], y: point[1] }));
-      
-      setPartitions(prev => [
-        ...prev, 
-        { 
-          id: prev.length, 
-          points, 
-          marbleCount: 0 
-        }
-      ]);
+      const points = currentPartition.map(([x, y]) => ({ x, y }));
+      setPartitions(prev => [...prev, { id: prev.length, points, marbleCount: 0 }]);
     }
-    
     setIsDrawing(false);
     setCurrentPartition([]);
   };
@@ -206,7 +194,6 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
       alert(`Please draw ${partitionCount} partitions before starting simulation.`);
       return;
     }
-    
     setIsSimulating(true);
     setGameState('simulating');
   };
@@ -359,6 +346,7 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     return k - 1;
   };
 
+
   return (
     <div className="game-board-container">
       <canvas
@@ -371,7 +359,6 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       />
-      
       <div className="game-controls">
         {gameState === 'drawing' && (
           <div>
