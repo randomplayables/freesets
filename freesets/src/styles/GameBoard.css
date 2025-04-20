@@ -1,0 +1,24 @@
+// src/styles/GameBoard.css
+.game-board-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.game-board {
+  border: 2px solid #333;
+  background-color: #f0f0f0;
+}
+
+.game-controls {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.partition-info {
+  margin-top: 20px;
+  text-align: left;
+}
