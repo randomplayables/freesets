@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameMode } from '../App';
+import SetResultDisplay from './SetResultDisplay';
 import '../styles/GameBoard.css';
 
 interface Marble {
@@ -32,14 +33,16 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   const [currentPartition, setCurrentPartition] = useState<number[][]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [gameState, setGameState] = useState<'drawing' | 'simulating' | 'checking'>('drawing');
+  const [gameState, setGameState] = useState<'drawing' | 'simulating' | 'checking' | 'results'>('drawing');
+  const [marbleCounts, setMarbleCounts] = useState<number[]>([]);
+  const [isWinner, setIsWinner] = useState(false);
 
   // Speed multiplier for marble movement - Change this to adjust ball speed
-  const SPEED_MULTIPLIER = 5;
+  const SPEED_MULTIPLIER = 10;
 
   // Draw partitions and current drawing line during drawing phase
   useEffect(() => {
-    if (gameState !== 'drawing' || !canvasRef.current) return;
+    if ((gameState !== 'drawing' && gameState !== 'results') || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -50,6 +53,8 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     // Draw existing partitions
     partitions.forEach(partition => {
       ctx.beginPath();
+      if (partition.points.length === 0) return;
+      
       const { x: startX, y: startY } = partition.points[0];
       ctx.moveTo(startX, startY);
       partition.points.forEach(pt => ctx.lineTo(pt.x, pt.y));
@@ -72,7 +77,12 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
       ctx.stroke();
       ctx.closePath();
     }
-  }, [currentPartition, partitions, gameState]);
+
+    if (gameState === 'results') {
+      // Draw the marbles in their final positions
+      drawMarbles(ctx);
+    }
+  }, [currentPartition, partitions, gameState, marbles]);
 
   // Initialize marbles whenever drawing phase starts or marble count changes
   useEffect(() => {
@@ -160,6 +170,8 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   const drawPartitions = (ctx: CanvasRenderingContext2D) => {
     partitions.forEach(partition => {
       ctx.beginPath();
+      if (partition.points.length === 0) return;
+      
       const first = partition.points[0];
       ctx.moveTo(first.x, first.y);
       partition.points.forEach(pt => ctx.lineTo(pt.x, pt.y));
@@ -213,19 +225,15 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     setPartitions(updatedPartitions);
     
     // Get the set of counts
-    const marbleCounts = updatedPartitions.map(p => p.marbleCount);
+    const counts = updatedPartitions.map(p => p.marbleCount);
+    setMarbleCounts(counts);
     
     // Check if the player wins based on the game mode
-    const isWinner = checkWinCondition(marbleCounts);
+    const winner = checkWinCondition(counts);
+    setIsWinner(winner);
     
-    if (isWinner) {
-      alert(`Congratulations! You won round ${partitionCount - 1}!`);
-      onWin();
-      setGameState('drawing');
-    } else {
-      alert(`Sorry, you lost round ${partitionCount - 1}. Try again!`);
-      onLose();
-    }
+    // Update the game state to show results
+    setGameState('results');
   };
 
   const countMarblesInPartitions = () => {
@@ -241,6 +249,8 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   };
 
   const isPointInPolygon = (x: number, y: number, polygon: { x: number; y: number }[]) => {
+    if (polygon.length < 3) return false;
+    
     let inside = false;
     
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -337,6 +347,8 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
 
   // Helper function to generate random Poisson distributed number
   const poissonRandom = (lambda: number) => {
+    if (lambda <= 0) return 0;
+    
     let L = Math.exp(-lambda);
     let p = 1.0;
     let k = 0;
@@ -349,6 +361,15 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     return k - 1;
   };
 
+  const handleContinue = () => {
+    onWin();
+    setGameState('drawing');
+  };
+
+  const handleReset = () => {
+    onLose();
+    setGameState('drawing');
+  };
 
   return (
     <div className="game-board-container">
@@ -362,37 +383,35 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       />
-      <div className="game-controls">
-        {gameState === 'drawing' && (
-          <div>
-            <p>Draw {partitionCount} partitions (closed shapes) on the board.</p>
-            <p>Partitions drawn: {partitions.length} / {partitionCount}</p>
-            <button 
-              onClick={startSimulation} 
-              disabled={partitions.length < partitionCount}
-            >
-              Start Simulation
-            </button>
-          </div>
-        )}
-        
-        {gameState === 'simulating' && (
-          <button onClick={stopSimulation}>Stop Simulation</button>
-        )}
-        
-        {partitions.length > 0 && gameState === 'checking' && (
-          <div className="partition-info">
-            <h3>Marble counts in each partition:</h3>
-            <ul>
-              {partitions.map(partition => (
-                <li key={partition.id}>
-                  Partition {partition.id + 1}: {partition.marbleCount} marbles
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      
+      {gameState === 'results' ? (
+        <SetResultDisplay
+          marbleCounts={marbleCounts}
+          gameMode={gameMode}
+          onContinue={handleContinue}
+          onReset={handleReset}
+          isWinner={isWinner}
+        />
+      ) : (
+        <div className="game-controls">
+          {gameState === 'drawing' && (
+            <div>
+              <p>Draw {partitionCount} partitions (closed shapes) on the board.</p>
+              <p>Partitions drawn: {partitions.length} / {partitionCount}</p>
+              <button 
+                onClick={startSimulation} 
+                disabled={partitions.length < partitionCount}
+              >
+                Start Simulation
+              </button>
+            </div>
+          )}
+          
+          {gameState === 'simulating' && (
+            <button onClick={stopSimulation}>Stop Simulation</button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
