@@ -34,6 +34,9 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   const [isSimulating, setIsSimulating] = useState(false);
   const [gameState, setGameState] = useState<'drawing' | 'simulating' | 'checking'>('drawing');
 
+  // Speed multiplier for marble movement - Change this to adjust ball speed
+  const SPEED_MULTIPLIER = 5;
+
   // Draw partitions and current drawing line during drawing phase
   useEffect(() => {
     if (gameState !== 'drawing' || !canvasRef.current) return;
@@ -114,8 +117,9 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
         id: i,
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2,
+        // Increase initial velocity range by multiplying with speed multiplier
+        vx: (Math.random() - 0.5) * 2 * SPEED_MULTIPLIER,
+        vy: (Math.random() - 0.5) * 2 * SPEED_MULTIPLIER,
         radius: 10,
       });
     }
@@ -127,6 +131,7 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     const canvas = canvasRef.current;
     setMarbles(prev =>
       prev.map(m => {
+        // Apply speed multiplier to movement calculations
         let newX = m.x + m.vx;
         let newY = m.y + m.vy;
         if (newX - m.radius <= 0 || newX + m.radius >= canvas.width) {
@@ -164,8 +169,6 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
       ctx.stroke();
     });
   };
-
-  // Mouse handlers and rest of code remain unchanged...
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (gameState !== 'drawing' || partitions.length >= partitionCount) return;
