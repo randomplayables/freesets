@@ -22,6 +22,7 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
   const [gameState, setGameState] = useState<'drawing' | 'simulating' | 'checking' | 'results'>('drawing');
   const [marbleCounts, setMarbleCounts] = useState<number[]>([]);
   const [isWinner, setIsWinner] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Data collection state
   const [roundStartTime] = useState<number>(Date.now());
@@ -217,6 +218,60 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
     return perimeter;
   };
 
+  // Check if line segments intersect
+  const doLineSegmentsIntersect = (
+    x1: number, y1: number, x2: number, y2: number,
+    x3: number, y3: number, x4: number, y4: number
+  ): boolean => {
+    // Calculate the direction of the lines
+    const d1x = x2 - x1;
+    const d1y = y2 - y1;
+    const d2x = x4 - x3;
+    const d2y = y4 - y3;
+    
+    // Calculate the determinant
+    const det = d1x * d2y - d1y * d2x;
+    
+    // If det is zero, lines are parallel or collinear
+    if (det === 0) return false;
+    
+    // Calculate the parameters of the intersection point
+    const s = ((x1 - x3) * d2y - (y1 - y3) * d2x) / det;
+    const t = ((x3 - x1) * d1y - (y3 - y1) * d1x) / -det;
+    
+    // Check if the intersection point lies on both line segments
+    return s >= 0 && s <= 1 && t >= 0 && t <= 1;
+  };
+
+  // Check if polygons overlap
+  const doPolygonsOverlap = (polygon1: {x: number, y: number}[], polygon2: {x: number, y: number}[]): boolean => {
+    // Check if any edge of polygon1 intersects with any edge of polygon2
+    for (let i = 0; i < polygon1.length; i++) {
+      const i2 = (i + 1) % polygon1.length;
+      const p1 = polygon1[i];
+      const p2 = polygon1[i2];
+      
+      for (let j = 0; j < polygon2.length; j++) {
+        const j2 = (j + 1) % polygon2.length;
+        const p3 = polygon2[j];
+        const p4 = polygon2[j2];
+        
+        if (doLineSegmentsIntersect(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y)) {
+          return true;
+        }
+      }
+    }
+    
+    // Check if one polygon is completely inside the other
+    // (we need to check at least one point from each polygon)
+    if (isPointInPolygon(polygon1[0].x, polygon1[0].y, polygon2) || 
+        isPointInPolygon(polygon2[0].x, polygon2[0].y, polygon1)) {
+      return true;
+    }
+    
+    return false;
+  };
+
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (gameState !== 'drawing' || partitions.length >= partitionCount) return;
     setIsDrawing(true);
@@ -237,19 +292,33 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
       const area = calculatePolygonArea(points);
       const perimeter = calculatePolygonPerimeter(points);
       
-      setPartitions(prev => [
-        ...prev, 
-        { 
-          id: prev.length, 
-          points, 
-          marbleCount: 0,
-          area,
-          perimeter,
-          drawTime
+      // Check for overlaps with existing partitions
+      let hasOverlap = false;
+      for (const partition of partitions) {
+        if (doPolygonsOverlap(points, partition.points)) {
+          hasOverlap = true;
+          setErrorMessage("Shapes cannot overlap! Try drawing elsewhere.");
+          setTimeout(() => setErrorMessage(null), 3000); // Clear error after 3 seconds
+          break;
         }
-      ]);
+      }
       
-      setDrawTimes(prev => [...prev, drawTime]);
+      if (!hasOverlap) {
+        setPartitions(prev => [
+          ...prev, 
+          { 
+            id: prev.length, 
+            points, 
+            marbleCount: 0,
+            area,
+            perimeter,
+            drawTime
+          }
+        ]);
+        
+        setDrawTimes(prev => [...prev, drawTime]);
+        setErrorMessage(null);
+      }
     }
     setIsDrawing(false);
     setCurrentPartition([]);
@@ -563,6 +632,12 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
         onMouseLeave={handleMouseUp}
       />
       
+      {errorMessage && (
+        <div className="error-message">
+          {errorMessage}
+        </div>
+      )}
+      
       {gameState === 'results' ? (
         <SetResultDisplay
           marbleCounts={marbleCounts}
@@ -577,8 +652,8 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
         <div className="game-controls">
           {gameState === 'drawing' && (
             <div>
-              <p>Draw {partitionCount} partitions (closed shapes) on the board.</p>
-              <p>Partitions drawn: {partitions.length} / {partitionCount}</p>
+              <p>Draw {partitionCount} disjoint enclosures on the board.</p>
+              <p>Enclosures drawn: {partitions.length} / {partitionCount}</p>
               <button 
                 onClick={startSimulation} 
                 disabled={partitions.length < partitionCount}
