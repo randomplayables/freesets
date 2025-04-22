@@ -1,32 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { GameMode } from '../App';
 import SetResultDisplay from './SetResultDisplay';
 import '../styles/GameBoard.css';
-
-interface Marble {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
-}
-
-interface Partition {
-  id: number;
-  points: { x: number; y: number }[];
-  marbleCount: number;
-}
+import { GameMode, Marble, Partition, MarbleData, PartitionData, RoundData } from '../types';
 
 interface GameBoardProps {
   marbleCount: number;
   partitionCount: number;
   gameMode: GameMode;
-  onWin: () => void;
-  onLose: () => void;
+  onWin: (roundData: RoundData) => void;
+  onLose: (roundData: RoundData) => void;
+  roundNumber: number;
 }
 
-const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: GameBoardProps) => {
+const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, roundNumber }: GameBoardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [marbles, setMarbles] = useState<Marble[]>([]);
   const [partitions, setPartitions] = useState<Partition[]>([]);
@@ -37,8 +23,21 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   const [marbleCounts, setMarbleCounts] = useState<number[]>([]);
   const [isWinner, setIsWinner] = useState(false);
 
-  // Speed multiplier for marble movement - Change this to adjust ball speed
+  // Data collection state
+  const [roundStartTime] = useState<number>(Date.now());
+  const [simStartTime, setSimStartTime] = useState<number>(0);
+  const [simEndTime, setSimEndTime] = useState<number>(0);
+  const [drawTimes, setDrawTimes] = useState<number[]>([]);
+  const [marbleData, setMarbleData] = useState<MarbleData[]>([]);
+  const [attempts, setAttempts] = useState<number>(1);
+  const [operationSet, setOperationSet] = useState<number[]>([]);
+  const [overlappingElements, setOverlappingElements] = useState<number[]>([]);
+  
+  // Speed multiplier for marble movement
   const SPEED_MULTIPLIER = 10;
+  
+  // Ref for tracking initial marble positions
+  const initialMarblePositions = useRef<{x: number, y: number}[]>([]);
 
   // Draw partitions and current drawing line during drawing phase
   useEffect(() => {
@@ -89,6 +88,7 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     if (gameState === 'drawing') {
       initializeMarbles();
       setPartitions([]);
+      setDrawTimes([]);
     }
   }, [marbleCount, gameState]);
 
@@ -122,17 +122,24 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
     const newMarbles: Marble[] = [];
+    const initialPositions: {x: number, y: number}[] = [];
+    
     for (let i = 0; i < marbleCount; i++) {
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
+      initialPositions.push({x, y});
+      
       newMarbles.push({
         id: i,
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        // Increase initial velocity range by multiplying with speed multiplier
+        x,
+        y,
         vx: (Math.random() - 0.5) * 2 * SPEED_MULTIPLIER,
         vy: (Math.random() - 0.5) * 2 * SPEED_MULTIPLIER,
         radius: 10,
       });
     }
+    
+    initialMarblePositions.current = initialPositions;
     setMarbles(newMarbles);
   };
 
@@ -141,7 +148,6 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     const canvas = canvasRef.current;
     setMarbles(prev =>
       prev.map(m => {
-        // Apply speed multiplier to movement calculations
         let newX = m.x + m.vx;
         let newY = m.y + m.vy;
         if (newX - m.radius <= 0 || newX + m.radius >= canvas.width) {
@@ -182,6 +188,35 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     });
   };
 
+  // Calculate polygon area
+  const calculatePolygonArea = (points: {x: number, y: number}[]): number => {
+    let area = 0;
+    const n = points.length;
+    
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      area += points[i].x * points[j].y;
+      area -= points[j].x * points[i].y;
+    }
+    
+    return Math.abs(area) / 2;
+  };
+  
+  // Calculate polygon perimeter
+  const calculatePolygonPerimeter = (points: {x: number, y: number}[]): number => {
+    let perimeter = 0;
+    const n = points.length;
+    
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const dx = points[j].x - points[i].x;
+      const dy = points[j].y - points[i].y;
+      perimeter += Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    return perimeter;
+  };
+
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (gameState !== 'drawing' || partitions.length >= partitionCount) return;
     setIsDrawing(true);
@@ -198,7 +233,23 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   const handleMouseUp = () => {
     if (isDrawing && currentPartition.length > 2) {
       const points = currentPartition.map(([x, y]) => ({ x, y }));
-      setPartitions(prev => [...prev, { id: prev.length, points, marbleCount: 0 }]);
+      const drawTime = Date.now();
+      const area = calculatePolygonArea(points);
+      const perimeter = calculatePolygonPerimeter(points);
+      
+      setPartitions(prev => [
+        ...prev, 
+        { 
+          id: prev.length, 
+          points, 
+          marbleCount: 0,
+          area,
+          perimeter,
+          drawTime
+        }
+      ]);
+      
+      setDrawTimes(prev => [...prev, drawTime]);
     }
     setIsDrawing(false);
     setCurrentPartition([]);
@@ -209,31 +260,53 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
       alert(`Please draw ${partitionCount} partitions before starting simulation.`);
       return;
     }
+    
+    const simStart = Date.now();
+    setSimStartTime(simStart);
     setIsSimulating(true);
     setGameState('simulating');
+    
+    // Initialize marble data tracking
+    const newMarbleData: MarbleData[] = marbles.map((marble, index) => {
+      return {
+        id: marble.id,
+        startX: initialMarblePositions.current[index].x,
+        startY: initialMarblePositions.current[index].y,
+        endX: marble.x,
+        endY: marble.y,
+        startTime: simStart,
+        endTime: 0,
+        totalDistance: 0
+      };
+    });
+    
+    setMarbleData(newMarbleData);
   };
 
   const stopSimulation = () => {
+    const endTime = Date.now();
+    setSimEndTime(endTime);
     setIsSimulating(false);
+    
+    // Update marble end positions and calculate distances
+    const updatedMarbleData = marbleData.map((data, index) => {
+      const marble = marbles[index];
+      const dx = marble.x - data.startX;
+      const dy = marble.y - data.startY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      return {
+        ...data,
+        endX: marble.x,
+        endY: marble.y,
+        endTime,
+        totalDistance: distance
+      };
+    });
+    
+    setMarbleData(updatedMarbleData);
     setGameState('checking');
     checkGameResult();
-  };
-
-  const checkGameResult = () => {
-    // Count marbles in each partition
-    const updatedPartitions = countMarblesInPartitions();
-    setPartitions(updatedPartitions);
-    
-    // Get the set of counts
-    const counts = updatedPartitions.map(p => p.marbleCount);
-    setMarbleCounts(counts);
-    
-    // Check if the player wins based on the game mode
-    const winner = checkWinCondition(counts);
-    setIsWinner(winner);
-    
-    // Update the game state to show results
-    setGameState('results');
   };
 
   const countMarblesInPartitions = () => {
@@ -265,6 +338,76 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
     }
     
     return inside;
+  };
+
+  const checkGameResult = () => {
+    // Count marbles in each partition
+    const updatedPartitions = countMarblesInPartitions();
+    setPartitions(updatedPartitions);
+    
+    // Get the set of counts
+    const counts = updatedPartitions.map(p => p.marbleCount);
+    setMarbleCounts(counts);
+    
+    // Check if the player wins based on the game mode
+    const winner = checkWinCondition(counts);
+    setIsWinner(winner);
+    
+    // Calculate operation sets for data collection
+    let ops: number[] = [];
+    let overlaps: number[] = [];
+    
+    if (gameMode === 'sum') {
+      // Calculate all sums of pairs
+      for (let i = 0; i < counts.length; i++) {
+        for (let j = i; j < counts.length; j++) {
+          const sum = counts[i] + counts[j];
+          ops.push(sum);
+          
+          // Check for overlaps
+          if (counts.includes(sum)) {
+            overlaps.push(sum);
+          }
+        }
+      }
+    } else if (gameMode === 'outerDist') {
+      // Calculate all rpois(a) + rpois(b) for each pair
+      for (let i = 0; i < counts.length; i++) {
+        for (let j = i; j < counts.length; j++) {
+          const poisA = poissonRandom(counts[i]);
+          const poisB = poissonRandom(counts[j]);
+          const sum = poisA + poisB;
+          
+          ops.push(sum);
+          
+          // Check for overlaps
+          if (counts.includes(sum)) {
+            overlaps.push(sum);
+          }
+        }
+      }
+    } else if (gameMode === 'innerDist') {
+      // Calculate all rpois(a + b) for each pair
+      for (let i = 0; i < counts.length; i++) {
+        for (let j = i; j < counts.length; j++) {
+          const innerSum = poissonRandom(counts[i] + counts[j]);
+          
+          ops.push(innerSum);
+          
+          // Check for overlaps
+          if (counts.includes(innerSum)) {
+            overlaps.push(innerSum);
+          }
+        }
+      }
+    }
+    
+    // Remove duplicates
+    setOperationSet([...new Set(ops)]);
+    setOverlappingElements([...new Set(overlaps)]);
+    
+    // Update the game state to show results
+    setGameState('results');
   };
 
   const checkWinCondition = (marbleCounts: number[]) => {
@@ -362,13 +505,49 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
   };
 
   const handleContinue = () => {
-    onWin();
+    // Prepare round data for collection
+    const roundData: RoundData = prepareRoundData();
+    onWin(roundData);
     setGameState('drawing');
   };
 
   const handleReset = () => {
-    onLose();
+    // Prepare round data for collection
+    const roundData: RoundData = prepareRoundData();
+    onLose(roundData);
+    setAttempts(prev => prev + 1);
     setGameState('drawing');
+  };
+
+  // Helper to prepare round data for collection
+  const prepareRoundData = (): RoundData => {
+    // Convert partitions to partition data format
+    const partitionData: PartitionData[] = partitions.map((partition, index) => ({
+      id: partition.id,
+      vertices: partition.points,
+      area: partition.area || calculatePolygonArea(partition.points),
+      perimeter: partition.perimeter || calculatePolygonPerimeter(partition.points),
+      drawTime: partition.drawTime || drawTimes[index] || 0,
+      marbleCount: partition.marbleCount
+    }));
+    
+    return {
+      roundNumber,
+      gameMode,
+      marbleCount,
+      partitionCount,
+      startTime: roundStartTime,
+      endTime: Date.now(),
+      simStartTime,
+      simEndTime,
+      marbles: marbleData,
+      partitions: partitionData,
+      marbleCounts,
+      operationSet,
+      overlappingElements,
+      isWinner,
+      attempts
+    };
   };
 
   return (
@@ -391,6 +570,8 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose }: Gam
           onContinue={handleContinue}
           onReset={handleReset}
           isWinner={isWinner}
+          operationSet={operationSet}
+          overlappingElements={overlappingElements}
         />
       ) : (
         <div className="game-controls">

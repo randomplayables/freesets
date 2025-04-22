@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { GameMode } from '../App';
+import { GameMode } from '../types';
 import '../styles/SetResultDisplay.css';
 
 interface SetResultDisplayProps {
@@ -8,6 +7,8 @@ interface SetResultDisplayProps {
   onContinue: () => void;
   onReset: () => void;
   isWinner: boolean;
+  operationSet: number[];
+  overlappingElements: number[];
 }
 
 const SetResultDisplay = ({ 
@@ -15,82 +16,10 @@ const SetResultDisplay = ({
   gameMode, 
   onContinue, 
   onReset,
-  isWinner 
+  isWinner,
+  operationSet,
+  overlappingElements
 }: SetResultDisplayProps) => {
-  const [operationSet, setOperationSet] = useState<number[]>([]);
-  const [overlappingElements, setOverlappingElements] = useState<number[]>([]);
-
-  useEffect(() => {
-    // Calculate the operation set based on the game mode
-    const newOperationSet: number[] = [];
-    const overlapping: number[] = [];
-
-    if (gameMode === 'sum') {
-      // Calculate all sums of pairs
-      for (let i = 0; i < marbleCounts.length; i++) {
-        for (let j = i; j < marbleCounts.length; j++) {
-          const sum = marbleCounts[i] + marbleCounts[j];
-          newOperationSet.push(sum);
-          
-          // Check for overlaps
-          if (marbleCounts.includes(sum)) {
-            overlapping.push(sum);
-          }
-        }
-      }
-    } else if (gameMode === 'outerDist') {
-      // Calculate all rpois(a) + rpois(b) for each pair
-      for (let i = 0; i < marbleCounts.length; i++) {
-        for (let j = i; j < marbleCounts.length; j++) {
-          const poisA = poissonRandom(marbleCounts[i]);
-          const poisB = poissonRandom(marbleCounts[j]);
-          const sum = poisA + poisB;
-          
-          newOperationSet.push(sum);
-          
-          // Check for overlaps
-          if (marbleCounts.includes(sum)) {
-            overlapping.push(sum);
-          }
-        }
-      }
-    } else if (gameMode === 'innerDist') {
-      // Calculate all rpois(a + b) for each pair
-      for (let i = 0; i < marbleCounts.length; i++) {
-        for (let j = i; j < marbleCounts.length; j++) {
-          const innerSum = poissonRandom(marbleCounts[i] + marbleCounts[j]);
-          
-          newOperationSet.push(innerSum);
-          
-          // Check for overlaps
-          if (marbleCounts.includes(innerSum)) {
-            overlapping.push(innerSum);
-          }
-        }
-      }
-    }
-
-    // Remove duplicates from operation set
-    setOperationSet([...new Set(newOperationSet)].sort((a, b) => a - b));
-    setOverlappingElements([...new Set(overlapping)]);
-  }, [marbleCounts, gameMode]);
-
-  // Helper function to generate random Poisson distributed number
-  const poissonRandom = (lambda: number) => {
-    if (lambda <= 0) return 0;
-    
-    let L = Math.exp(-lambda);
-    let p = 1.0;
-    let k = 0;
-    
-    do {
-      k++;
-      p *= Math.random();
-    } while (p > L);
-    
-    return k - 1;
-  };
-
   // Get the operation name based on game mode
   const getOperationName = () => {
     switch (gameMode) {
@@ -151,6 +80,19 @@ const SetResultDisplay = ({
           </p>
         </div>
       )}
+
+      {/* Add data visualization or summary */}
+      <div className="data-summary">
+        <h3>Data Summary</h3>
+        <p>Partition counts: {marbleCounts.join(', ')}</p>
+        <p>Total marbles: {marbleCounts.reduce((a, b) => a + b, 0)}</p>
+        <p>Unique counts: {new Set(marbleCounts).size} / {marbleCounts.length}</p>
+        <p>
+          Distribution: Min={Math.min(...marbleCounts)}, 
+          Max={Math.max(...marbleCounts)}, 
+          Avg={(marbleCounts.reduce((a, b) => a + b, 0) / marbleCounts.length).toFixed(1)}
+        </p>
+      </div>
 
       <div className="result-buttons">
         {isWinner ? (
