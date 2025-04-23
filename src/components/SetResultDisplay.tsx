@@ -44,16 +44,16 @@ const SetResultDisplay = ({
         <div className="set-box">
           <h3>Set S (Your Marble Counts)</h3>
           <div className="set-elements">
-            {marbleCounts.sort((a, b) => a - b).map((count, idx) => (
+            {[...new Set(marbleCounts)].sort((a, b) => a - b).map((count, idx) => (
               <span 
-                key={idx} 
-                className={overlappingElements.includes(count) ? "element overlapping" : "element"}
+              key={idx} 
+              className={overlappingElements.includes(count) ? "element overlapping" : "element"}
               >
                 {count}
-              </span>
-            ))}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
 
         <div className="set-box">
           <h3>{getOperationName()}</h3>
@@ -74,8 +74,8 @@ const SetResultDisplay = ({
         <div className="explanation">
           <p>
             Your set is not a valid {gameMode === 'sum' ? 'sum-free set' : 
-                                    gameMode === 'outerDist' ? 'outer distribution-free set' : 
-                                    'inner distribution-free set'} because the 
+                                  gameMode === 'outerDist' ? 'outer distribution-free set' : 
+                                  'inner distribution-free set'} because the 
             following elements appear in both sets: {overlappingElements.join(', ')}
           </p>
         </div>

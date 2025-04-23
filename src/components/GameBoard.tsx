@@ -493,7 +493,8 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
   };
 
   const checkSumFreeSet = (set: number[]) => {
-    // Check if S + S has no overlap with S
+    // Get unique values in the set
+    const uniqueSet = [...new Set(set)];
     const sumPairs = new Set<number>();
     
     // Generate all possible sums of pairs
@@ -503,9 +504,9 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
       }
     }
     
-    // Check if any sum is in the original set
+    // Check if any sum is in the unique set
     for (const sum of sumPairs) {
-      if (set.includes(sum)) {
+      if (uniqueSet.includes(sum)) {
         return false;
       }
     }
