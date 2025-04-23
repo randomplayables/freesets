@@ -418,94 +418,27 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
     const counts = updatedPartitions.map(p => p.marbleCount);
     setMarbleCounts(counts);
     
-    // Check if the player wins based on the game mode
-    const winner = checkWinCondition(counts);
-    setIsWinner(winner);
-    
-    // Calculate operation sets for data collection
-    let ops: number[] = [];
-    let overlaps: number[] = [];
-    
-     if (gameMode === 'sum') {
-         // Calculate all sums of pairs
-         for (let i = 0; i < counts.length; i++) {
-           for (let j = i; j < counts.length; j++) {
-             const sum = counts[i] + counts[j];
-             ops.push(sum);
-             if (counts.includes(sum)) overlaps.push(sum);
-           }
-         }
-       } else if (gameMode === 'poisson') {
-         // Calculate rpois(a + b) for each pair
-         for (let i = 0; i < counts.length; i++) {
-           for (let j = i; j < counts.length; j++) {
-             const val = poissonRandom(counts[i] + counts[j]);
-             ops.push(val);
-             if (counts.includes(val)) overlaps.push(val);
-           }
-         }
-       }
-    
-    // Remove duplicates
-    setOperationSet([...new Set(ops)]);
-    setOverlappingElements([...new Set(overlaps)]);
-    
-    // Update the game state to show results
+    // // Update the game state to show results
+    // setGameState('results');
+    // 1. Build one list of ops and overlaps:
+    const ops: number[] = [];
+    for (let i = 0; i < counts.length; i++) {
+      for (let j = i; j < counts.length; j++) {
+        const val =
+          gameMode === 'sum'
+            ? counts[i] + counts[j]
+            : poissonRandom(counts[i] + counts[j]);
+        ops.push(val);
+      }
+    }
+    const uniqueOps = Array.from(new Set(ops));
+    const overlaps = uniqueOps.filter(v => counts.includes(v));
+
+    // 2. Use that SAME overlaps[] to decide win and render:
+    setOperationSet(uniqueOps);
+    setOverlappingElements(overlaps);
+    setIsWinner(overlaps.length === 0);
     setGameState('results');
-  };
-
-  const checkWinCondition = (marbleCounts: number[]) => {
-      switch (gameMode) {
-          case 'sum':
-            return checkSumFreeSet(marbleCounts);
-          case 'poisson':
-            return checkInnerDistribution(marbleCounts);
-          default:
-            return false;
-      }
-  };
-
-  const checkSumFreeSet = (set: number[]) => {
-    // Get unique values in the set
-    const uniqueSet = [...new Set(set)];
-    const sumPairs = new Set<number>();
-    
-    // Generate all possible sums of pairs
-    for (let i = 0; i < set.length; i++) {
-      for (let j = i; j < set.length; j++) {
-        sumPairs.add(set[i] + set[j]);
-      }
-    }
-    
-    // Check if any sum is in the unique set
-    for (const sum of sumPairs) {
-      if (uniqueSet.includes(sum)) {
-        return false;
-      }
-    }
-    
-    return true;
-  };
-
-  const checkInnerDistribution = (set: number[]) => {
-    // Implementation of Inner Dist condition
-    // Generate rpois(a + b) for all pairs in the set
-    const innerSums = new Set<number>();
-    
-    for (let i = 0; i < set.length; i++) {
-      for (let j = i; j < set.length; j++) {
-        innerSums.add(poissonRandom(set[i] + set[j]));
-      }
-    }
-    
-    // Check if any result is in the original set
-    for (const sum of innerSums) {
-      if (set.includes(sum)) {
-        return false;
-      }
-    }
-    
-    return true;
   };
 
   // Helper function to generate random Poisson distributed number
