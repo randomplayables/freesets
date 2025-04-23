@@ -22,16 +22,14 @@ const SetResultDisplay = ({
 }: SetResultDisplayProps) => {
   // Get the operation name based on game mode
   const getOperationName = () => {
-    switch (gameMode) {
-      case 'sum':
-        return 'S + S';
-      case 'outerDist':
-        return 'rpois(a) + rpois(b) for all a,b in S';
-      case 'innerDist':
-        return 'rpois(a + b) for all a,b in S';
-      default:
-        return 'S * S';
-    }
+        switch (gameMode) {
+          case 'sum':
+            return 'S + S';
+          case 'poisson':
+            return 'rpois(a + b) for all a,b in S';
+          default:
+            return 'S + S';
+      }
   };
 
   return (
@@ -73,10 +71,8 @@ const SetResultDisplay = ({
       {!isWinner && overlappingElements.length > 0 && (
         <div className="explanation">
           <p>
-            Your set is not a valid {gameMode === 'sum' ? 'sum-free set' : 
-                                  gameMode === 'outerDist' ? 'outer distribution-free set' : 
-                                  'inner distribution-free set'} because the 
-            following elements appear in both sets: {overlappingElements.join(', ')}
+          Your set is not a valid {gameMode === 'sum' ? 'sum-free set' : 'Poisson distribution-free set'} because the 
+          following elements appear in both sets: {overlappingElements.join(', ')}
           </p>
         </div>
       )}

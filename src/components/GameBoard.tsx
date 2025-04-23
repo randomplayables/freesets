@@ -426,50 +426,25 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
     let ops: number[] = [];
     let overlaps: number[] = [];
     
-    if (gameMode === 'sum') {
-      // Calculate all sums of pairs
-      for (let i = 0; i < counts.length; i++) {
-        for (let j = i; j < counts.length; j++) {
-          const sum = counts[i] + counts[j];
-          ops.push(sum);
-          
-          // Check for overlaps
-          if (counts.includes(sum)) {
-            overlaps.push(sum);
-          }
-        }
-      }
-    } else if (gameMode === 'outerDist') {
-      // Calculate all rpois(a) + rpois(b) for each pair
-      for (let i = 0; i < counts.length; i++) {
-        for (let j = i; j < counts.length; j++) {
-          const poisA = poissonRandom(counts[i]);
-          const poisB = poissonRandom(counts[j]);
-          const sum = poisA + poisB;
-          
-          ops.push(sum);
-          
-          // Check for overlaps
-          if (counts.includes(sum)) {
-            overlaps.push(sum);
-          }
-        }
-      }
-    } else if (gameMode === 'innerDist') {
-      // Calculate all rpois(a + b) for each pair
-      for (let i = 0; i < counts.length; i++) {
-        for (let j = i; j < counts.length; j++) {
-          const innerSum = poissonRandom(counts[i] + counts[j]);
-          
-          ops.push(innerSum);
-          
-          // Check for overlaps
-          if (counts.includes(innerSum)) {
-            overlaps.push(innerSum);
-          }
-        }
-      }
-    }
+     if (gameMode === 'sum') {
+         // Calculate all sums of pairs
+         for (let i = 0; i < counts.length; i++) {
+           for (let j = i; j < counts.length; j++) {
+             const sum = counts[i] + counts[j];
+             ops.push(sum);
+             if (counts.includes(sum)) overlaps.push(sum);
+           }
+         }
+       } else if (gameMode === 'poisson') {
+         // Calculate rpois(a + b) for each pair
+         for (let i = 0; i < counts.length; i++) {
+           for (let j = i; j < counts.length; j++) {
+             const val = poissonRandom(counts[i] + counts[j]);
+             ops.push(val);
+             if (counts.includes(val)) overlaps.push(val);
+           }
+         }
+       }
     
     // Remove duplicates
     setOperationSet([...new Set(ops)]);
@@ -480,16 +455,14 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
   };
 
   const checkWinCondition = (marbleCounts: number[]) => {
-    switch (gameMode) {
-      case 'sum':
-        return checkSumFreeSet(marbleCounts);
-      case 'outerDist':
-        return checkOuterDistribution(marbleCounts);
-      case 'innerDist':
-        return checkInnerDistribution(marbleCounts);
-      default:
-        return false;
-    }
+      switch (gameMode) {
+          case 'sum':
+            return checkSumFreeSet(marbleCounts);
+          case 'poisson':
+            return checkInnerDistribution(marbleCounts);
+          default:
+            return false;
+      }
   };
 
   const checkSumFreeSet = (set: number[]) => {
@@ -507,29 +480,6 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
     // Check if any sum is in the unique set
     for (const sum of sumPairs) {
       if (uniqueSet.includes(sum)) {
-        return false;
-      }
-    }
-    
-    return true;
-  };
-
-  const checkOuterDistribution = (set: number[]) => {
-    // Implementation of Outer Dist condition
-    // Generate rpois(a) + rpois(b) for all pairs in the set
-    const outerSums = new Set<number>();
-    
-    for (let i = 0; i < set.length; i++) {
-      for (let j = i; j < set.length; j++) {
-        const poisA = poissonRandom(set[i]);
-        const poisB = poissonRandom(set[j]);
-        outerSums.add(poisA + poisB);
-      }
-    }
-    
-    // Check if any sum is in the original set
-    for (const sum of outerSums) {
-      if (set.includes(sum)) {
         return false;
       }
     }
