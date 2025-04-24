@@ -40,7 +40,7 @@ const SetResultDisplay = ({
       
       <div className="sets-container">
         <div className="set-box">
-          <h3>Set S (Your Marble Counts)</h3>
+          <h3>S</h3>
           <div className="set-elements">
             {[...new Set(marbleCounts)].sort((a, b) => a - b).map((count, idx) => (
               <span 
@@ -76,19 +76,6 @@ const SetResultDisplay = ({
           </p>
         </div>
       )}
-
-      {/* Add data visualization or summary */}
-      <div className="data-summary">
-        <h3>Data Summary</h3>
-        <p>Partition counts: {marbleCounts.join(', ')}</p>
-        <p>Total marbles: {marbleCounts.reduce((a, b) => a + b, 0)}</p>
-        <p>Unique counts: {new Set(marbleCounts).size} / {marbleCounts.length}</p>
-        <p>
-          Distribution: Min={Math.min(...marbleCounts)}, 
-          Max={Math.max(...marbleCounts)}, 
-          Avg={(marbleCounts.reduce((a, b) => a + b, 0) / marbleCounts.length).toFixed(1)}
-        </p>
-      </div>
 
       <div className="result-buttons">
         {isWinner ? (
