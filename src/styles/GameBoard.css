@@ -1,26 +1,61 @@
-// src/styles/GameBoard.css
 .game-board-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 20px;
+  margin: 20px auto;
+  width: 100%;
+  max-width: 800px;
 }
 
 .game-board {
   border: 2px solid #333;
   background-color: #f0f0f0;
+  margin: 0 auto;
+  display: block;
 }
 
 .game-controls {
-  margin-top: 20px;
+  margin: 20px auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.game-controls p, 
+.game-controls div {
+  color: #333333;
+}
+
+.game-controls button {
+  padding: 10px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s, transform 0.2s;
+  color: white;
+}
+
+.game-controls button:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+}
+
+.game-controls button:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
 }
 
 .partition-info {
   margin-top: 20px;
-  text-align: left;
+  text-align: center;
+  width: 100%;
 }
 
 .error-message {

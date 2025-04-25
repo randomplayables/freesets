@@ -1,26 +1,38 @@
-// src/styles/GameControls.css
 .game-controls {
-  margin: 20px 0;
-  padding: 10px;
+  margin: 20px auto;
+  padding: 15px;
   border: 1px solid #ccc;
   border-radius: 8px;
   background-color: #f9f9f9;
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.game-controls button {
+  color: white;
 }
 
 .help-content {
-  margin-top: 15px;
+  margin: 15px auto;
   text-align: left;
   max-width: 600px;
+  color: #333333;
 }
 
 .help-content h3 {
   margin-bottom: 10px;
+  text-align: center;
+  color: #333333;
 }
 
 .help-content ol, .help-content ul {
   margin-left: 20px;
+  margin-right: 20px;
+  color: #333333;
 }
 
 .help-content li {
   margin-bottom: 5px;
+  color: #333333;
 }
