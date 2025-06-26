@@ -33,6 +33,7 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
   const [attempts, setAttempts] = useState<number>(1);
   const [operationSet, setOperationSet] = useState<number[]>([]);
   const [overlappingElements, setOverlappingElements] = useState<number[]>([]);
+  const [failingPairs, setFailingPairs] = useState<{ a: number, b: number }[]>([]);
   
   // Speed multiplier for marble movement
   const SPEED_MULTIPLIER = 10;
@@ -409,35 +410,69 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
     return inside;
   };
 
+  // Helper function for GCD calculation (Euclidean algorithm)
+  const gcd = (a: number, b: number): number => {
+    if (b === 0) {
+      return a;
+    }
+    return gcd(b, a % b);
+  };
+
   const checkGameResult = () => {
-    // Count marbles in each partition
     const updatedPartitions = countMarblesInPartitions();
     setPartitions(updatedPartitions);
-    
-    // Get the set of counts
     const counts = updatedPartitions.map(p => p.marbleCount);
     setMarbleCounts(counts);
     
-    // // Update the game state to show results
-    // setGameState('results');
-    // 1. Build one list of ops and overlaps:
+    let isSetWinner = false;
     const ops: number[] = [];
-    for (let i = 0; i < counts.length; i++) {
-      for (let j = i; j < counts.length; j++) {
-        const val =
-          gameMode === 'sum'
-            ? counts[i] + counts[j]
-            : poissonRandom(counts[i] + counts[j]);
-        ops.push(val);
+    const localFailingPairs: { a: number, b: number }[] = [];
+    
+    if (gameMode === 'sum') {
+      for (let i = 0; i < counts.length; i++) {
+        for (let j = i; j < counts.length; j++) {
+          ops.push(counts[i] + counts[j]);
+        }
       }
+      const uniqueOps = Array.from(new Set(ops));
+      const overlaps = uniqueOps.filter(v => counts.includes(v));
+      setOperationSet(uniqueOps);
+      setOverlappingElements(overlaps);
+      isSetWinner = overlaps.length === 0;
+    } else if (gameMode === 'poisson') {
+      for (let i = 0; i < counts.length; i++) {
+        for (let j = i; j < counts.length; j++) {
+          ops.push(poissonRandom(counts[i] + counts[j]));
+        }
+      }
+      const uniqueOps = Array.from(new Set(ops));
+      const overlaps = uniqueOps.filter(v => counts.includes(v));
+      setOperationSet(uniqueOps);
+      setOverlappingElements(overlaps);
+      isSetWinner = overlaps.length === 0;
+    } else if (gameMode === 'coprime') {
+      let isCoprimeFree = true;
+      if (counts.length < 2) {
+        isCoprimeFree = true;
+      } else {
+        for (let i = 0; i < counts.length; i++) {
+          for (let j = i + 1; j < counts.length; j++) {
+            const currentGcd = gcd(counts[i], counts[j]);
+            ops.push(currentGcd);
+            if (currentGcd === 1) {
+              isCoprimeFree = false;
+              localFailingPairs.push({ a: counts[i], b: counts[j] });
+            }
+          }
+        }
+      }
+      setOperationSet(Array.from(new Set(ops)));
+      setFailingPairs(localFailingPairs);
+      setOverlappingElements([]); // Not used for win condition here
+      isSetWinner = isCoprimeFree;
     }
-    const uniqueOps = Array.from(new Set(ops));
-    const overlaps = uniqueOps.filter(v => counts.includes(v));
-
-    // 2. Use that SAME overlaps[] to decide win and render:
-    setOperationSet(uniqueOps);
-    setOverlappingElements(overlaps);
-    setIsWinner(overlaps.length === 0);
+    
+    setIsWinner(isSetWinner);
     setGameState('results');
   };
 
@@ -531,6 +566,7 @@ const GameBoard = ({ marbleCount, partitionCount, gameMode, onWin, onLose, round
           isWinner={isWinner}
           operationSet={operationSet}
           overlappingElements={overlappingElements}
+          failingPairs={failingPairs}
         />
       ) : (
         <div className="game-controls">

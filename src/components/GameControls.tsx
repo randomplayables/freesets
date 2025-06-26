@@ -22,6 +22,7 @@ const GameControls = () => {
             <ul>
               <li><strong>Sum Free Set:</strong> The set of marble counts must not contain any sums of its own elements</li>
               <li><strong>Poisson:</strong> Uses rpois(a + b) for all a, b in S</li>
+              <li><strong>Coprime Free Set:</strong> You win if no pair of numbers in your set is coprime (i.e., their GCD is never 1).</li>
             </ul>
           </ol>
         </div>

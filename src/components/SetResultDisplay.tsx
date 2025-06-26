@@ -9,6 +9,7 @@ interface SetResultDisplayProps {
   isWinner: boolean;
   operationSet: number[];
   overlappingElements: number[];
+  failingPairs?: { a: number, b: number }[];
 }
 
 const SetResultDisplay = ({ 
@@ -18,7 +19,8 @@ const SetResultDisplay = ({
   onReset,
   isWinner,
   operationSet,
-  overlappingElements
+  overlappingElements,
+  failingPairs
 }: SetResultDisplayProps) => {
   // Get the operation name based on game mode
   const getOperationName = () => {
@@ -27,10 +29,35 @@ const SetResultDisplay = ({
             return 'S + S';
           case 'poisson':
             return 'rpois(a + b) for all a,b in S';
+          case 'coprime':
+            return 'gcd(a, b) for all a,b in S';
           default:
             return 'S + S';
       }
   };
+
+  const getExplanationText = () => {
+    switch (gameMode) {
+      case 'sum':
+        if (overlappingElements.length > 0) {
+          return `Your set is not a valid sum-free set because the following elements appear in both sets: ${overlappingElements.join(', ')}`;
+        }
+        return '';
+      case 'poisson':
+        if (overlappingElements.length > 0) {
+          return `Your set is not a valid Poisson distribution-free set because the following elements appear in both sets: ${overlappingElements.join(', ')}`;
+        }
+        return '';
+      case 'coprime':
+        if (failingPairs && failingPairs.length > 0) {
+          const pairStrings = failingPairs.map(p => `gcd(${p.a}, ${p.b}) = 1`).join('; ');
+          return `Your set is not coprime-free because at least one pair is coprime: ${pairStrings}`;
+        }
+        return 'A set is coprime-free if every pair of numbers in it shares a common factor greater than 1.';
+      default:
+        return '';
+    }
+  }
 
   return (
     <div className="set-result-display">
@@ -68,11 +95,10 @@ const SetResultDisplay = ({
         </div>
       </div>
 
-      {!isWinner && overlappingElements.length > 0 && (
+      {!isWinner && (
         <div className="explanation">
           <p>
-          Your set is not a valid {gameMode === 'sum' ? 'sum-free set' : 'Poisson distribution-free set'} because the 
-          following elements appear in both sets: {overlappingElements.join(', ')}
+            {getExplanationText()}
           </p>
         </div>
       )}

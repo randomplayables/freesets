@@ -118,12 +118,13 @@ function App() {
           <h2>Select Game Mode</h2>
           <button onClick={() => startGame('sum')}>Sum Free Set</button>
           <button onClick={() => startGame('poisson')}>Poisson</button>
+          <button onClick={() => startGame('coprime')}>Coprime Free Set</button>
         </div>
       ) : (
         <>
           <div className="game-info">
             <h2>Round: {round}</h2>
-            <h3>Mode: {gameMode === 'sum' ? 'Sum Free Set' : 'Poisson'}</h3>
+            <h3>Mode: {gameMode === 'sum' ? 'Sum Free Set' : gameMode === 'poisson' ? 'Poisson' : 'Coprime Free Set'}</h3>
             <h3>Marbles: {marbleCount}</h3>
             <h3>Score: {gameData.totalScore}</h3>
           </div>

@@ -1,4 +1,4 @@
-export type GameMode = 'sum' | 'poisson';
+export type GameMode = 'sum' | 'poisson' | 'coprime';
 
 export interface Marble {
   id: number;
