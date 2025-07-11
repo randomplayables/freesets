@@ -17,27 +17,28 @@ const GAME_ID = import.meta.env.VITE_GAME_ID;
 const SESSION_STORAGE_KEY = 'gameSession';
 const SESSION_CREATION_TIME_KEY = 'gameSessionCreationTime';
 
-// Extract authentication data from URL if present
-function getAuthFromURL() {
-  if (typeof window === 'undefined') return { token: null, userId: null, username: null };
+// Extract authentication and survey context data from URL if present
+function getContextFromURL() {
+  if (typeof window === 'undefined') {
+    return { token: null, userId: null, username: null, surveyMode: false, questionId: null };
+  }
   
-  // Get the full URL including hash parameters
-  const fullUrl = window.location.href;
-  console.log("Checking URL for auth params:", fullUrl);
-  
-  // Parse URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   const authToken = urlParams.get('authToken');
   const userId = urlParams.get('userId');
   const username = urlParams.get('username');
+  const surveyMode = urlParams.get('surveyMode') === 'true';
+  const questionId = urlParams.get('questionId');
   
-  console.log("Auth params extracted:", 
-    authToken ? "Token present" : "No token", 
-    userId || "No userId",
-    username || "No username"
-  );
+  console.log("Auth & Survey params extracted:", { 
+    token: !!authToken, 
+    userId, 
+    username,
+    surveyMode,
+    questionId
+  });
   
-  return { token: authToken, userId, username };
+  return { token: authToken, userId, username, surveyMode, questionId };
 }
 
 // We use a Promise to ensure multiple simultaneous calls wait for the same result
@@ -78,8 +79,8 @@ export async function initGameSession() {
       // Remove any existing session data
       localStorage.removeItem(SESSION_STORAGE_KEY);
       
-      // Get authentication from URL if available
-      const { token, userId, username } = getAuthFromURL();
+      // Get authentication and survey context from URL if available
+      const { token, userId, username, surveyMode, questionId } = getContextFromURL();
       
       // Create a new session
       console.log("Initializing new game session with platform...");
@@ -92,26 +93,26 @@ export async function initGameSession() {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      // Important: Modified to use 'omit' for credentials to avoid CORS issues
-      // while still passing the userId directly in the request body
+      // Pass survey context to the backend API
       const response = await fetch(`${API_BASE_URL}/game-session`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ 
           gameId: GAME_ID,
-          // Pass userId and username from URL directly in request body as fallback mechanism
-          ...(userId ? { passedUserId: userId } : {}),
-          ...(username ? { passedUsername: username } : {})
+          passedUserId: userId,
+          passedUsername: username,
+          surveyMode: surveyMode,
+          surveyQuestionId: questionId
         }),
-        credentials: 'include' // Can be 'include' now because proxy makes it a same-origin request
+        credentials: 'include'
       });
       
       if (!response.ok) {
         console.warn(`Could not connect to RandomPlayables platform. Status: ${response.status}. Using local session.`);
         const localSession = {
           sessionId: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          userId: userId || null,  // Use userId from URL if available
-          username: username || null, // Use username from URL if available
+          userId: userId || null,
+          username: username || null,
           isGuest: !userId,
           gameId: GAME_ID
         };
@@ -128,18 +129,23 @@ export async function initGameSession() {
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
       localStorage.setItem(SESSION_CREATION_TIME_KEY, now.toString());
       
+      // Conditionally send a message back to the parent window
+      if (surveyMode && window.parent) {
+          console.log('Game is in survey mode. Posting session data to parent window.');
+          window.parent.postMessage({ type: 'GAME_SESSION_CREATED', payload: session }, '*');
+      }
+
       return session;
     } catch (error) {
       console.error('Error initializing game session:', error);
       
-      // Get authentication from URL for fallback
-      const { userId, username } = getAuthFromURL();
+      const { userId, username } = getContextFromURL();
       
       // Fallback to local session
       const localSession = {
         sessionId: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        userId: userId || null,  // Use userId from URL if available
-        username: username || null, // Use username from URL if available
+        userId: userId || null,
+        username: username || null,
         isGuest: !userId,
         gameId: GAME_ID
       };
@@ -149,8 +155,6 @@ export async function initGameSession() {
       
       return localSession;
     } finally {
-      // Clear the promise after a short delay to allow duplicate calls during the same
-      // render cycle to use the same promise
       setTimeout(() => {
         sessionInitPromise = null;
       }, 5000);
@@ -192,7 +196,7 @@ export async function saveGameData(roundNumber: number, roundData: any) {
     }
     
     // Get authentication from URL if available
-    const { token, userId, username } = getAuthFromURL();
+    const { token, userId, username } = getContextFromURL();
     
     // Prepare headers
     const headers: Record<string, string> = {
@@ -204,7 +208,7 @@ export async function saveGameData(roundNumber: number, roundData: any) {
       headers['Authorization'] = `Bearer ${token}`;
     }
     
-    // Send data to the server - using 'omit' for credentials to avoid CORS issues
+    // Send data to the server
     console.log(`Sending data to ${API_BASE_URL}/game-data`);
     const response = await fetch(`${API_BASE_URL}/game-data`, {
       method: 'POST',
@@ -214,7 +218,6 @@ export async function saveGameData(roundNumber: number, roundData: any) {
         sessionId: session.sessionId,
         roundNumber,
         roundData,
-        // Also pass userId and username directly in the request body as fallback
         ...(userId ? { passedUserId: userId } : {}),
         ...(username ? { passedUsername: username } : {})
       }),
