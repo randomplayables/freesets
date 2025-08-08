@@ -1,15 +1,15 @@
-import { defineConfig, ProxyOptions } from 'vite' // CHANGE: Import ProxyOptions
+import { defineConfig, ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
-export default defineConfig(({ command, mode }) => { // CHANGE: Add 'mode'
+export default defineConfig(({ command, mode }) => {
   const isProduction = mode === 'production';
 
   // Define the base server configuration object
   const serverConfig: {
     host: string;
     allowedHosts: string[];
-    proxy?: Record<string, string | ProxyOptions>; // CHANGE: Use the specific type for the proxy
+    proxy?: Record<string, string | ProxyOptions>;
   } = {
     // Add this to make Vite's development server use your private IP
     host: '0.0.0.0',
@@ -24,7 +24,7 @@ export default defineConfig(({ command, mode }) => { // CHANGE: Add 'mode'
       '/api': {
         target: 'http://172.31.12.157:3000',
         changeOrigin: true,
-        rewrite: (path: string) => path.replace(/^\/api/, '')
+        // The incorrect 'rewrite' line has been removed from this section.
       }
     };
   }
